@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: admintab-app
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/prisma/dev.db
+    volumes:
+      - ./prisma:/app/prisma
+      - admintab-data:/app/.next
+    restart: unless-stopped
+    networks:
+      - admintab-network
+
+networks:
+  admintab-network:
+    driver: bridge
+
+volumes:
+  admintab-data:

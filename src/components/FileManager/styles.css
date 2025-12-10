@@ -1,0 +1,187 @@
+/* FileManager Styles */
+
+/* Custom scrollbar for file lists */
+.file-manager-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-manager-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.file-manager-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+.file-manager-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* File grid animations */
+.file-grid-item {
+  transition: all 0.2s ease-in-out;
+}
+
+.file-grid-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* File list animations */
+.file-list-row {
+  transition: background-color 0.2s ease-in-out;
+}
+
+.file-list-row:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* Folder tree animations */
+.folder-tree-item {
+  transition: all 0.2s ease-in-out;
+}
+
+.folder-tree-item:hover {
+  background-color: hsl(var(--accent));
+}
+
+/* Loading spinner */
+.file-manager-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* File preview styles */
+.file-preview-container {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.file-preview-image {
+  max-width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+}
+
+/* Google Docs integration */
+.google-docs-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.google-docs-button:hover {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .file-manager-sidebar {
+    width: 100%;
+    height: auto;
+  }
+  
+  .file-manager-main {
+    flex-direction: column;
+  }
+  
+  .file-manager-toolbar {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .file-preview-image {
+    filter: brightness(0.9);
+  }
+}
+
+/* RTL support */
+.file-manager-rtl {
+  direction: rtl;
+}
+
+.file-manager-rtl .file-grid-item {
+  text-align: right;
+}
+
+.file-manager-rtl .file-list-row {
+  text-align: right;
+}
+
+/* File type specific styles */
+.file-type-pdf {
+  color: #dc2626;
+}
+
+.file-type-word {
+  color: #2563eb;
+}
+
+.file-type-excel {
+  color: #16a34a;
+}
+
+.file-type-powerpoint {
+  color: #ea580c;
+}
+
+.file-type-image {
+  color: #7c3aed;
+}
+
+.file-type-video {
+  color: #db2777;
+}
+
+.file-type-audio {
+  color: #0891b2;
+}
+
+.file-type-archive {
+  color: #6b7280;
+}
+
+/* Selection states */
+.file-selected {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+.file-multi-selected {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.05);
+}
+
+/* Drag and drop */
+.file-drop-zone {
+  border: 2px dashed hsl(var(--border));
+  transition: all 0.2s ease-in-out;
+}
+
+.file-drop-zone.drag-over {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+/* Error states */
+.file-error {
+  border-color: hsl(var(--destructive));
+  background-color: hsl(var(--destructive) / 0.1);
+}
+
+/* Success states */
+.file-success {
+  border-color: hsl(var(--success));
+  background-color: hsl(var(--success) / 0.1);
+}
