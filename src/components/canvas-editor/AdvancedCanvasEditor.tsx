@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Move3D, Square, Circle, Type, ImageIcon, Trash2, Copy, Lock, Unlock, Eye, EyeOff, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Triangle, Hexagon, Star, List, ListOrdered, Palette, Upload, Image as ImageIcon2, Save as SaveIcon, X as XIcon, FileDown } from 'lucide-react';
 import { jsPDF } from 'jspdf';
+import { useImperativeHandle, forwardRef } from 'react';
 
 interface CanvasElement {
   id: string;
@@ -37,21 +38,30 @@ interface CanvasElement {
   frameType?: 'none' | 'shadow' | 'border';
 }
 
+export interface AdvancedCanvasEditorRef {
+  getPDFBlob: () => Promise<Blob>;
+  getData: () => { elements: CanvasElement[], background: string, blurAmount: number };
+}
+
 interface AdvancedCanvasEditorProps {
   initialData?: CanvasElement[];
   background?: string;
   blurAmount?: number;
   onSave: (data: CanvasElement[], background?: string, blurAmount?: number) => void;
   onCancel: () => void;
+  showSaveControls?: boolean;
+  readOnly?: boolean;
 }
 
-export default function AdvancedCanvasEditor({
+const AdvancedCanvasEditor = forwardRef<AdvancedCanvasEditorRef, AdvancedCanvasEditorProps>(({
   initialData = [],
   background: initialBackground = '',
   blurAmount: initialBlurAmount = 0,
   onSave,
-  onCancel
-}: AdvancedCanvasEditorProps) {
+  onCancel,
+  showSaveControls = true,
+  readOnly = false
+}: AdvancedCanvasEditorProps, ref) => {
   // Initialize elements with proper zIndex values
   const initializedElements = initialData.map((el, index) => ({
     ...el,
@@ -77,6 +87,280 @@ export default function AdvancedCanvasEditor({
   const savedRangeRef = useRef<Range | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const colorInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Sync state with props when they change
+  useEffect(() => {
+    const initializedElements = initialData.map((el, index) => ({
+      ...el,
+      zIndex: el.zIndex !== undefined && el.zIndex !== null ? el.zIndex : index + 1
+    }));
+    setElements(initializedElements);
+  }, [initialData]);
+
+  useEffect(() => {
+    setBackground(initialBackground);
+  }, [initialBackground]);
+
+  useEffect(() => {
+    setBlurAmount(initialBlurAmount);
+  }, [initialBlurAmount]);
+
+  useImperativeHandle(ref, () => ({
+    getData: () => ({
+      elements,
+      background,
+      blurAmount
+    }),
+    getPDFBlob: async () => {
+      return new Promise<Blob>(async (resolve, reject) => {
+        try {
+          const hexToRgb = (hex: string): [number, number, number] => {
+            hex = hex.replace('#', '');
+            if (hex.length === 3) {
+              hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+            }
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            return [r, g, b];
+          };
+
+          const pdf = new jsPDF({
+            orientation: canvasWidth > canvasHeight ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [canvasWidth, canvasHeight]
+          });
+
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = canvasWidth;
+          tempCanvas.height = canvasHeight;
+          const ctx = tempCanvas.getContext('2d');
+
+          if (!ctx) throw new Error('Failed to get canvas context');
+
+          // Draw background
+          if (background) {
+            if (background.startsWith('#') || background.startsWith('rgb')) {
+              ctx.fillStyle = background;
+              ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            } else if (background.startsWith('data:') || background.startsWith('http')) {
+              const bgImg = new Image();
+              bgImg.crossOrigin = 'anonymous';
+              bgImg.src = background;
+              await new Promise((resolveImg) => {
+                bgImg.onload = () => {
+                  ctx.drawImage(bgImg, 0, 0, canvasWidth, canvasHeight);
+                  resolveImg(true);
+                };
+                bgImg.onerror = () => {
+                  ctx.fillStyle = '#ffffff';
+                  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+                  resolveImg(false);
+                };
+              });
+            }
+          } else {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+          }
+
+          const sortedElements = [...elements].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+          const allElements = sortedElements.filter(element => element.visible);
+
+          for (let i = 0; i < allElements.length; i++) {
+            const element = allElements[i];
+            const opacity = (element.opacity || 100) / 100;
+
+            if (element.type === 'text') {
+              if (!element.text) continue;
+              
+              if (element.backgroundColor && element.backgroundColor !== 'transparent') {
+                const [r, g, b] = hexToRgb(element.backgroundColor);
+                pdf.setFillColor(r, g, b);
+                pdf.setGState(new (pdf as any).GState({ opacity }));
+                pdf.rect(element.x, element.y, element.width, element.height, 'F');
+              }
+
+              if (element.borderColor && element.borderWidth) {
+                const [r, g, b] = hexToRgb(element.borderColor);
+                pdf.setDrawColor(r, g, b);
+                pdf.setLineWidth(element.borderWidth);
+                pdf.setGState(new (pdf as any).GState({ opacity }));
+                pdf.rect(element.x, element.y, element.width, element.height, 'S');
+              }
+
+              const fontSize = element.fontSize || 16;
+              pdf.setFontSize(fontSize);
+              
+              const textColor = element.color || '#000000';
+              const [r, g, b] = hexToRgb(textColor);
+              pdf.setTextColor(r, g, b);
+              pdf.setGState(new (pdf as any).GState({ opacity }));
+              
+              let fontStyle = 'normal';
+              if (element.fontWeight === 'bold' && element.fontStyle === 'italic') {
+                fontStyle = 'bolditalic';
+              } else if (element.fontWeight === 'bold') {
+                fontStyle = 'bold';
+              } else if (element.fontStyle === 'italic') {
+                fontStyle = 'italic';
+              }
+              pdf.setFont('helvetica', fontStyle);
+
+              let cleanText = element.text || '';
+              cleanText = cleanText
+                .replace(/<\/div><div>/gi, '\n')
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<div>/gi, '')
+                .replace(/<\/div>/gi, '\n')
+                .replace(/<\/p>/gi, '\n')
+                .replace(/<p[^>]*>/gi, '')
+                .replace(/<[^>]*>/g, '')
+                .replace(/^\n+/, '')
+                .replace(/\n+$/, '');
+              
+              const lines = cleanText.split('\n');
+              const lineHeight = fontSize * 1.2;
+              const wrappedLines: string[] = [];
+              const maxWidth = element.width - 16;
+              
+              lines.forEach(line => {
+                if (!line) {
+                  wrappedLines.push('');
+                  return;
+                }
+                const words = line.split(' ');
+                let currentLine = '';
+                words.forEach((word, index) => {
+                  const testLine = currentLine ? `${currentLine} ${word}` : word;
+                  const textWidth = pdf.getTextWidth(testLine);
+                  if (textWidth > maxWidth && currentLine) {
+                    wrappedLines.push(currentLine);
+                    currentLine = word;
+                  } else {
+                    currentLine = testLine;
+                  }
+                  if (index === words.length - 1) {
+                    wrappedLines.push(currentLine);
+                  }
+                });
+              });
+              
+              wrappedLines.forEach((line, index) => {
+                const y = element.y + fontSize + 8 + (index * lineHeight);
+                let x = element.x + 8;
+                if (element.textAlign === 'center') {
+                  x = element.x + element.width / 2;
+                  pdf.text(line, x, y, { align: 'center' });
+                } else if (element.textAlign === 'right') {
+                  x = element.x + element.width - 8;
+                  pdf.text(line, x, y, { align: 'right' });
+                } else {
+                  pdf.text(line, x, y);
+                }
+              });
+              continue;
+            }
+
+            // Non-text elements
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvasWidth;
+            tempCanvas.height = canvasHeight;
+            const ctx = tempCanvas.getContext('2d');
+            if (!ctx) continue;
+
+            ctx.globalAlpha = opacity;
+
+            if (element.type === 'rectangle') {
+              if (element.backgroundColor) {
+                ctx.fillStyle = element.backgroundColor;
+                if (element.borderRadius) {
+                  const radius = element.borderRadius;
+                  ctx.beginPath();
+                  ctx.moveTo(element.x + radius, element.y);
+                  ctx.lineTo(element.x + element.width - radius, element.y);
+                  ctx.quadraticCurveTo(element.x + element.width, element.y, element.x + element.width, element.y + radius);
+                  ctx.lineTo(element.x + element.width, element.y + element.height - radius);
+                  ctx.quadraticCurveTo(element.x + element.width, element.y + element.height, element.x + element.width - radius, element.y + element.height);
+                  ctx.lineTo(element.x + radius, element.y + element.height);
+                  ctx.quadraticCurveTo(element.x, element.y + element.height, element.x, element.y + element.height - radius);
+                  ctx.lineTo(element.x, element.y + radius);
+                  ctx.quadraticCurveTo(element.x, element.y, element.x + radius, element.y);
+                  ctx.closePath();
+                  ctx.fill();
+                } else {
+                  ctx.fillRect(element.x, element.y, element.width, element.height);
+                }
+              }
+              if (element.borderColor && element.borderWidth) {
+                ctx.strokeStyle = element.borderColor;
+                ctx.lineWidth = element.borderWidth;
+                if (element.borderRadius) {
+                  const radius = element.borderRadius;
+                  ctx.beginPath();
+                  ctx.moveTo(element.x + radius, element.y);
+                  ctx.lineTo(element.x + element.width - radius, element.y);
+                  ctx.quadraticCurveTo(element.x + element.width, element.y, element.x + element.width, element.y + radius);
+                  ctx.lineTo(element.x + element.width, element.y + element.height - radius);
+                  ctx.quadraticCurveTo(element.x + element.width, element.y + element.height, element.x + element.width - radius, element.y + element.height);
+                  ctx.lineTo(element.x + radius, element.y + element.height);
+                  ctx.quadraticCurveTo(element.x, element.y + element.height, element.x, element.y + element.height - radius);
+                  ctx.lineTo(element.x, element.y + radius);
+                  ctx.quadraticCurveTo(element.x, element.y, element.x + radius, element.y);
+                  ctx.closePath();
+                  ctx.stroke();
+                } else {
+                  ctx.strokeRect(element.x, element.y, element.width, element.height);
+                }
+              }
+            }
+            else if (element.type === 'circle') {
+              ctx.beginPath();
+              ctx.ellipse(element.x + element.width / 2, element.y + element.height / 2, element.width / 2, element.height / 2, 0, 0, 2 * Math.PI);
+              if (element.backgroundColor) { ctx.fillStyle = element.backgroundColor; ctx.fill(); }
+              if (element.borderColor && element.borderWidth) { ctx.strokeStyle = element.borderColor; ctx.lineWidth = element.borderWidth; ctx.stroke(); }
+            }
+            else if (element.type === 'triangle') {
+              ctx.beginPath();
+              ctx.moveTo(element.x + element.width / 2, element.y);
+              ctx.lineTo(element.x + element.width, element.y + element.height);
+              ctx.lineTo(element.x, element.y + element.height);
+              ctx.closePath();
+              if (element.backgroundColor) { ctx.fillStyle = element.backgroundColor; ctx.fill(); }
+              if (element.borderColor && element.borderWidth) { ctx.strokeStyle = element.borderColor; ctx.lineWidth = element.borderWidth; ctx.stroke(); }
+            }
+            else if (element.type === 'image' && element.image) {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              img.src = element.image;
+              await new Promise((resolveImg) => {
+                img.onload = () => {
+                  ctx.drawImage(img, element.x, element.y, element.width, element.height);
+                  if (element.borderColor && element.borderWidth) {
+                    ctx.strokeStyle = element.borderColor;
+                    ctx.lineWidth = element.borderWidth;
+                    ctx.strokeRect(element.x, element.y, element.width, element.height);
+                  }
+                  resolveImg(true);
+                };
+                img.onerror = () => resolveImg(false);
+              });
+            }
+
+            ctx.globalAlpha = 1;
+            const elementCanvas = tempCanvas.toDataURL('image/png');
+            pdf.addImage(elementCanvas, 'PNG', 0, 0, canvasWidth, canvasHeight);
+          }
+
+          const blob = pdf.output('blob');
+          resolve(blob);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+  }));
+
 
   // Helper function to generate a unique ID
   const generateId = () => {
@@ -1009,11 +1293,11 @@ export default function AdvancedCanvasEditor({
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-full bg-gray-100">
       {/* Toolbar Container */}
-      <div className="w-full">
-        {/* Toolbar - sticky positioned below navigation */}
-        <div className="sticky bg-white border-b border-gray-200 shadow-sm z-40" style={{ top: '88px' }}>
+      <div className="w-full z-40 bg-white border-b border-gray-200 shadow-sm flex-none" style={{ display: readOnly ? 'none' : 'block' }}>
+        {/* Toolbar */}
+        <div>
           <div className="px-4 py-3">
             {/* First Row - Shape Tools */}
             <div className="flex items-center gap-2 mb-3">
@@ -1414,44 +1698,43 @@ export default function AdvancedCanvasEditor({
             <div className="w-px h-8 bg-gray-300" />
             
             {/* Save/Cancel Buttons */}
-            <div className="flex items-center gap-2 ml-auto">
-              <Button
-                variant="outline"
-                onClick={onCancel}
-                className="h-9 px-4 text-sm"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleExportToPDF}
-                className="h-9 px-4 text-sm"
-              >
-                <FileDown className="w-4 h-4 mr-2" />
-                Save as PDF
-              </Button>
-              <Button
-                onClick={() => onSave(elements, background, blurAmount)}
-                className="h-9 px-4 text-sm"
-              >
-                Save
-              </Button>
-            </div>
+            {showSaveControls && (
+              <div className="flex items-center gap-2 ml-auto">
+                <Button
+                  variant="outline"
+                  onClick={onCancel}
+                  className="h-9 px-4 text-sm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportToPDF}
+                  className="h-9 px-4 text-sm"
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Save as PDF
+                </Button>
+                <Button
+                  onClick={() => onSave(elements, background, blurAmount)}
+                  className="h-9 px-4 text-sm"
+                >
+                  Save
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Canvas Container */}
-      <div className="w-full">
-        {/* Canvas */}
-        <div className="flex-auto relative bg-gray-100 overflow-visible min-h-screen" style={{ paddingTop: '300px' }}>
+      <div className="flex-1 overflow-auto bg-gray-100 w-full">
+        {/* Canvas Wrapper */}
+        <div className="min-h-full w-full flex items-center justify-center p-8">
           <div
             ref={canvasRef}
-            className="absolute bg-white shadow-lg rounded-lg overflow-hidden canvas-container"
+            className="relative bg-white shadow-lg rounded-lg overflow-hidden canvas-container flex-none"
             style={{
-              left: '50%',
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
               width: `${canvasWidth}px`,
               height: `${canvasHeight}px`,
               border: canvasBorderWidth > 0 ? `${canvasBorderWidth}px solid ${canvasBorderColor}` : 'none'
@@ -1475,7 +1758,7 @@ export default function AdvancedCanvasEditor({
             <div
               key={`${element.id}-${element.zIndex}`}
               className={`absolute group border-2 ${
-                selectedElement === element.id
+                selectedElement === element.id && !readOnly
                   ? 'border-blue-500'
                   : 'border-transparent hover:border-gray-300'
               } ${element.locked ? 'opacity-50' : ''}`}
@@ -1485,17 +1768,19 @@ export default function AdvancedCanvasEditor({
                 width: `${element.width}px`,
                 height: `${element.height}px`,
                 zIndex: element.zIndex || 0, // Use zIndex directly without +1
-                cursor: element.locked ? 'not-allowed' : 'move',
-                opacity: element.visible ? (element.opacity / 100) : 0,
+                cursor: readOnly ? 'default' : (element.locked ? 'not-allowed' : 'move'),
+                opacity: (element.visible !== false) ? ((element.opacity || 100) / 100) : 0,
                 // Remove border and borderRadius from container - will be applied to shapes individually
                 boxShadow: element.frameType === 'shadow' ? '0 4px 8px rgba(0,0,0,0.1)' : undefined
               }}
               onClick={(e) => {
+                if (readOnly) return;
                 e.stopPropagation();
                 selectElement(element.id);
               }}
             >
               {/* Drag Handle Layer - Invisible but clickable */}
+              {!readOnly && (
               <div
                 className="absolute inset-0"
                 style={{ zIndex: 10 }}
@@ -1511,6 +1796,7 @@ export default function AdvancedCanvasEditor({
                   selectElement(element.id);
                 }}
               />
+              )}
 
               {element.type === 'text' && (
                 <div
@@ -1520,11 +1806,11 @@ export default function AdvancedCanvasEditor({
                     border: element.borderColor ? `${element.borderWidth || 1}px solid ${element.borderColor}` : 'none',
                     borderRadius: `${element.borderRadius || 0}px`,
                     overflow: 'hidden',
-                    pointerEvents: selectedElement === element.id ? 'auto' : 'none'
+                    pointerEvents: readOnly ? 'auto' : (selectedElement === element.id ? 'auto' : 'none')
                   }}
                 >
                   <div
-                    contentEditable={selectedElement === element.id}
+                    contentEditable={!readOnly && selectedElement === element.id}
                     suppressContentEditableWarning
                     tabIndex={0}
                     className="w-full h-full outline-none"
@@ -1542,6 +1828,14 @@ export default function AdvancedCanvasEditor({
                       whiteSpace: 'pre-wrap',
                       overflowWrap: 'break-word',
                       wordBreak: 'break-word'
+                    }}
+                    ref={(el) => {
+                      if (el) {
+                        const currentText = element.text || 'Type here...';
+                        if (el.innerHTML !== currentText) {
+                          el.innerHTML = currentText;
+                        }
+                      }
                     }}
                     onBlur={(e) => {
                       updateElement(element.id, { text: e.currentTarget.innerHTML || '' });
@@ -1573,14 +1867,11 @@ export default function AdvancedCanvasEditor({
                       } catch (err) {}
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        return;
-                      }
                       if (e.ctrlKey || e.metaKey) {
                         e.stopPropagation();
                       }
                     }}
-                    dangerouslySetInnerHTML={{ __html: element.text || 'Type here...' }}
+                    dangerouslySetInnerHTML={selectedElement === element.id ? undefined : { __html: element.text || 'Type here...' }}
                   />
                 </div>
               )}
@@ -1785,4 +2076,6 @@ export default function AdvancedCanvasEditor({
 
     </div>
   );
-}
+});
+
+export default AdvancedCanvasEditor;

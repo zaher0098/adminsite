@@ -11,6 +11,8 @@ import { toast } from 'sonner'
 import { SketchPicker } from 'react-color'
 import { FileManager } from '@/components/FileManager'
 import dynamic from 'next/dynamic'
+import SimplePostEditor from '@/components/canvas-editor/SimplePostEditor'
+import { Plus, Edit } from 'lucide-react'
 
 const AdvancedCanvasEditor = dynamic(() => import('@/components/canvas-editor/AdvancedCanvasEditor'), { ssr: false })
 
@@ -50,6 +52,11 @@ interface Post {
   image: string
   author: string
   date: string
+  canvasData?: string
+  background?: string
+  blurAmount?: number
+  pdfUrl?: string
+  published?: boolean
 }
 
 interface Project {
@@ -72,12 +79,7 @@ export default function Home() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [openColorPicker, setOpenColorPicker] = useState<string | null>(null)
-  const [posts] = useState<Post[]>([
-    { id: '1', title: 'Welcome to AdminTab', content: 'This is your first post', description: 'Get started with AdminTab - Learn the basics and explore all available features for customization.', image: 'https://images.unsplash.com/photo-1522869635100-ce75b9c93ab7?w=600&h=400&fit=crop', author: 'Admin', date: '2024-12-07' },
-    { id: '2', title: 'Customize Your Dashboard', content: 'Learn how to personalize your interface', description: 'Discover how to customize colors, wallpapers, and layouts to match your personal style and preferences.', image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600&h=400&fit=crop', author: 'Admin', date: '2024-12-06' },
-    { id: '3', title: 'New Features Available', content: 'Check out the latest updates and improvements', description: 'Explore the newest features and improvements that make AdminTab more powerful and user-friendly.', image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&h=400&fit=crop', author: 'Admin', date: '2024-12-05' },
-    { id: '4', title: 'Advanced Settings Guide', content: 'Master the advanced configuration options with deep dives into performance tuning, security hardening, backups, and automation workflows across multiple environments. This dummy text is intentionally long to exercise the scroll area and ensure the layout behaves like an A4-like reader when content overflows the viewport height. Explore detailed runbooks for disaster recovery, chaos drills, observability rollouts, and capacity modeling so teams can validate resilience before incidents occur. Learn how to stage changes safely with feature flags, canary releases, blue-green strategies, and rapid rollback guardrails to minimize blast radius under pressure. Master the advanced configuration options with deep dives into performance tuning, security hardening, backups, and automation workflows across multiple environments. This dummy text is intentionally long to exercise the scroll area and ensure the layout behaves like an A4-like reader when content overflows the viewport height. Explore detailed runbooks for disaster recovery, chaos drills, observability rollouts, and capacity modeling so teams can validate resilience before incidents occur. Learn how to stage changes safely with feature flags, canary releases, blue-green strategies, and rapid rollback guardrails to minimize blast radius under pressure. Master the advanced configuration options with deep dives into performance tuning, security hardening, backups, and automation workflows across multiple environments. This dummy text is intentionally long to exercise the scroll area and ensure the layout behaves like an A4-like reader when content overflows the viewport height. Explore detailed runbooks for disaster recovery, chaos drills, observability rollouts, and capacity modeling so teams can validate resilience before incidents occur. Learn how to stage changes safely with feature flags, canary releases, blue-green strategies, and rapid rollback guardrails to minimize blast radius under pressure. Master the advanced configuration options with deep dives into performance tuning, security hardening, backups, and automation workflows across multiple environments. This dummy text is intentionally long to exercise the scroll area and ensure the layout behaves like an A4-like reader when content overflows the viewport height. Explore detailed runbooks for disaster recovery, chaos drills, observability rollouts, and capacity modeling so teams can validate resilience before incidents occur. Learn how to stage changes safely with feature flags, canary releases, blue-green strategies, and rapid rollback guardrails to minimize blast radius under pressure. Master the advanced configuration options with deep dives into performance tuning, security hardening, backups, and automation workflows across multiple environments. This dummy text is intentionally long to exercise the scroll area and ensure the layout behaves like an A4-like reader when content overflows the viewport height. Explore detailed runbooks for disaster recovery, chaos drills, observability rollouts, and capacity modeling so teams can validate resilience before incidents occur. Learn how to stage changes safely with feature flags, canary releases, blue-green strategies, and rapid rollback guardrails to minimize blast radius under pressure. Master the advanced configuration options with deep dives into performance tuning, security hardening, backups, and automation workflows across multiple environments. This dummy text is intentionally long to exercise the scroll area and ensure the layout behaves like an A4-like reader when content overflows the viewport height. Explore detailed runbooks for disaster recovery, chaos drills, observability rollouts, and capacity modeling so teams can validate resilience before incidents occur. Learn how to stage changes safely with feature flags, canary releases, blue-green strategies, and rapid rollback guardrails to minimize blast radius under pressure. Master the advanced configuration options with deep dives into performance tuning, security hardening, backups, and automation workflows across multiple environments. This dummy text is intentionally long to exercise the scroll area and ensure the layout behaves like an A4-like reader when content overflows the viewport height. Explore detailed runbooks for disaster recovery, chaos drills, observability rollouts, and capacity modeling so teams can validate resilience before incidents occur. Learn how to stage changes safely with feature flags, canary releases, blue-green strategies, and rapid rollback guardrails to minimize blast radius under pressure.', description: 'A comprehensive guide to using advanced settings for power users who want full control. It covers layered configuration strategies, migration tips, rollback planning, audit readiness, and operational checklists to validate every change before and after deployment. Go deeper with environment parity tips, secrets rotation patterns, database migration sequencing, and cross-region failover rehearsals to harden your platform. Finish with governance checklists, drift detection tactics, and day-two operations playbooks so teams stay consistent as systems evolve. A comprehensive guide to using advanced settings for power users who want full control. It covers layered configuration strategies, migration tips, rollback planning, audit readiness, and operational checklists to validate every change before and after deployment. Go deeper with environment parity tips, secrets rotation patterns, database migration sequencing, and cross-region failover rehearsals to harden your platform. Finish with governance checklists, drift detection tactics, and day-two operations playbooks so teams stay consistent as systems evolve. A comprehensive guide to using advanced settings for power users who want full control. It covers layered configuration strategies, migration tips, rollback planning, audit readiness, and operational checklists to validate every change before and after deployment. Go deeper with environment parity tips, secrets rotation patterns, database migration sequencing, and cross-region failover rehearsals to harden your platform. Finish with governance checklists, drift detection tactics, and day-two operations playbooks so teams stay consistent as systems evolve. A comprehensive guide to using advanced settings for power users who want full control. It covers layered configuration strategies, migration tips, rollback planning, audit readiness, and operational checklists to validate every change before and after deployment. Go deeper with environment parity tips, secrets rotation patterns, database migration sequencing, and cross-region failover rehearsals to harden your platform. Finish with governance checklists, drift detection tactics, and day-two operations playbooks so teams stay consistent as systems evolve. A comprehensive guide to using advanced settings for power users who want full control. It covers layered configuration strategies, migration tips, rollback planning, audit readiness, and operational checklists to validate every change before and after deployment. Go deeper with environment parity tips, secrets rotation patterns, database migration sequencing, and cross-region failover rehearsals to harden your platform. Finish with governance checklists, drift detection tactics, and day-two operations playbooks so teams stay consistent as systems evolve. A comprehensive guide to using advanced settings for power users who want full control. It covers layered configuration strategies, migration tips, rollback planning, audit readiness, and operational checklists to validate every change before and after deployment. Go deeper with environment parity tips, secrets rotation patterns, database migration sequencing, and cross-region failover rehearsals to harden your platform. Finish with governance checklists, drift detection tactics, and day-two operations playbooks so teams stay consistent as systems evolve. A comprehensive guide to using advanced settings for power users who want full control. It covers layered configuration strategies, migration tips, rollback planning, audit readiness, and operational checklists to validate every change before and after deployment. Go deeper with environment parity tips, secrets rotation patterns, database migration sequencing, and cross-region failover rehearsals to harden your platform. Finish with governance checklists, drift detection tactics, and day-two operations playbooks so teams stay consistent as systems evolve.', image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&h=400&fit=crop', author: 'Admin', date: '2024-12-04' }
-  ])
+  const [posts, setPosts] = useState<Post[]>([])
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
   
@@ -92,6 +94,88 @@ export default function Home() {
     description: 'Welcome to our amazing platform. We are dedicated to providing the best service possible.',
     image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=400&fit=crop'
   })
+
+
+  useEffect(() => {
+    fetchPosts()
+  }, [])
+
+  const fetchPosts = async () => {
+    try {
+      const response = await fetch('/api/posts')
+      if (response.ok) {
+        const data = await response.json()
+        const mappedPosts = data.map((p: any) => ({
+          ...p,
+          author: p.authorId || 'Admin',
+          date: new Date(p.createdAt).toLocaleDateString(),
+          image: p.image || 'https://via.placeholder.com/150',
+          description: p.description || '',
+          content: p.content || ''
+        }))
+        setPosts(mappedPosts)
+        if (data.length > 0 && !selectedPost) {
+          setSelectedPost(data[data.length - 1])
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch posts:', error)
+    }
+  }
+
+  const handleSavePost = async (post: Post) => {
+    try {
+      const method = post.id && posts.some(p => p.id === post.id) ? 'PUT' : 'POST'
+      const url = method === 'PUT' ? `/api/posts/${post.id}` : '/api/posts'
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(post),
+      })
+
+      if (response.ok) {
+        fetchPosts()
+        toast({
+          title: "Success",
+          description: "Post saved successfully",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to save post:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save post",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeletePost = async (id: string) => {
+    try {
+      const response = await fetch(`/api/posts/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        fetchPosts()
+        if (selectedPost?.id === id) {
+          setSelectedPost(null)
+        }
+        toast({
+          title: "Success",
+          description: "Post deleted successfully",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to delete post:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete post",
+        variant: "destructive",
+      })
+    }
+  }
 
   useEffect(() => {
     if (selectedPost === null && posts.length > 0) {
@@ -594,7 +678,20 @@ export default function Home() {
                 maxHeight: '320px',
                 overflowY: 'auto'
               }} className="scrollbar-thin scrollbar-thumb-gray-400">
-                <h3 className="text-lg font-bold mb-4">📰 Posts</h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold">📰 Posts</h3>
+                  {isAdmin && (
+                    <SimplePostEditor 
+                      authorId="Admin" 
+                      onSave={handleSavePost} 
+                      trigger={
+                        <Button size="sm" variant="outline" style={{ color: s.buttonColor, borderColor: s.buttonColor }}>
+                          <Plus className="w-4 h-4 mr-2" /> Add Post
+                        </Button>
+                      } 
+                    />
+                  )}
+                </div>
                 <div className="space-y-3">
                   {posts.map((post) => (
                     <Card 
@@ -689,17 +786,74 @@ export default function Home() {
               }}>
                 {selectedPost && (
                   <div className="text-center space-y-4">
-                    <img 
-                      src={selectedPost.image} 
-                      alt={selectedPost.title}
-                      style={{ width: '100%', height: '280px', objectFit: 'cover', borderRadius: '0.5rem' }}
-                    />
+                    {selectedPost.canvasData ? (
+                      <div className="h-[500px] w-full border rounded-lg overflow-hidden relative bg-white">
+                        <AdvancedCanvasEditor
+                          initialData={(() => {
+                            try {
+                              return JSON.parse(selectedPost.canvasData).elements || []
+                            } catch (e) { return [] }
+                          })()}
+                          background={(() => {
+                            try {
+                              return JSON.parse(selectedPost.canvasData).background || ''
+                            } catch (e) { return '' }
+                          })()}
+                          blurAmount={(() => {
+                            try {
+                              return JSON.parse(selectedPost.canvasData).blurAmount || 0
+                            } catch (e) { return 0 }
+                          })()}
+                          onSave={() => {}}
+                          onCancel={() => {}}
+                          showSaveControls={false}
+                          readOnly={true}
+                        />
+                      </div>
+                    ) : (
+                      <img 
+                        src={selectedPost.image} 
+                        alt={selectedPost.title}
+                        style={{ width: '100%', height: '280px', objectFit: 'cover', borderRadius: '0.5rem' }}
+                      />
+                    )}
                     <h2 className="text-3xl font-bold">{selectedPost.title}</h2>
                     <p className="text-lg opacity-90 leading-relaxed">{selectedPost.description}</p>
                     <p className="text-base opacity-90 leading-relaxed">{selectedPost.content}</p>
                     <div className="text-sm opacity-75 pt-4 border-t" style={{ borderColor: s.buttonColor + '40' }}>
                       <p><span className="font-semibold">{selectedPost.author}</span> • {selectedPost.date}</p>
+                      {selectedPost.pdfUrl && (
+                        <a 
+                          href={selectedPost.pdfUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-block mt-2 text-blue-600 hover:underline"
+                        >
+                          📄 Download PDF
+                        </a>
+                      )}
                     </div>
+                    {isAdmin && (
+                      <div className="flex gap-2 mt-4">
+                        <SimplePostEditor 
+                          post={selectedPost} 
+                          authorId="Admin" 
+                          onSave={handleSavePost} 
+                          trigger={
+                            <Button variant="outline" className="flex-1">
+                              <Edit className="w-4 h-4 mr-2" /> Edit
+                            </Button>
+                          } 
+                        />
+                        <Button 
+                          variant="destructive" 
+                          className="flex-1"
+                          onClick={() => handleDeletePost(selectedPost.id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" /> Delete
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -998,9 +1152,9 @@ export default function Home() {
             minHeight: '70vh', 
             maxHeight: '85vh',
             borderRadius: '1rem', 
-            overflow: 'auto',
+            overflow: 'hidden',
             backgroundColor: 'white',
-            padding: '1rem'
+            padding: '0'
           }}>
             <AdvancedCanvasEditor 
               onSave={(elements, background, blurAmount) => {

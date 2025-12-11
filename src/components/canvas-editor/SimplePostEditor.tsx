@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/custom-dialog';
+import { useState, useEffect, useRef } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import AdvancedCanvasEditor from './AdvancedCanvasEditor';
+import AdvancedCanvasEditor, { AdvancedCanvasEditorRef } from './AdvancedCanvasEditor';
 
 import { Plus, Edit, Eye, Save } from 'lucide-react';
 
@@ -22,6 +22,7 @@ interface SimplePostEditorProps {
 export default function SimplePostEditor({ post, authorId, onSave, trigger }: SimplePostEditorProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const editorRef = useRef<AdvancedCanvasEditorRef>(null);
   const [formData, setFormData] = useState({
     title: post?.title || '',
     content: post?.content || '',
@@ -63,10 +64,50 @@ export default function SimplePostEditor({ post, authorId, onSave, trigger }: Si
     setLoading(true);
     
     try {
+      let pdfUrl = null;
+      
+      // Generate PDF if editor ref is available
+      if (editorRef.current) {
+        try {
+          const pdfBlob = await editorRef.current.getPDFBlob();
+          
+          // Upload PDF
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', pdfBlob, `post-${Date.now()}.pdf`);
+          
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: uploadFormData
+          });
+          
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            pdfUrl = uploadData.url;
+            console.log('PDF uploaded successfully:', pdfUrl);
+          } else {
+            console.error('Failed to upload PDF');
+          }
+        } catch (pdfError) {
+          console.error('Error generating PDF:', pdfError);
+        }
+      }
+
+      // Get current canvas data
+      let currentElements = canvasElements;
+      let currentBackground = canvasBackground;
+      let currentBlur = canvasBlur;
+
+      if (editorRef.current) {
+        const data = editorRef.current.getData();
+        currentElements = data.elements;
+        currentBackground = data.background;
+        currentBlur = data.blurAmount;
+      }
+
       const canvasDataString = JSON.stringify({
-        elements: canvasElements,
-        background: canvasBackground,
-        blurAmount: canvasBlur
+        elements: currentElements,
+        background: currentBackground,
+        blurAmount: currentBlur
       });
 
       const postData = {
@@ -74,8 +115,9 @@ export default function SimplePostEditor({ post, authorId, onSave, trigger }: Si
         content: formData.content,
         published: formData.published,
         canvasData: canvasDataString,
-        background: canvasBackground,
-        blurAmount: canvasBlur,
+        background: currentBackground,
+        blurAmount: currentBlur,
+        pdfUrl: pdfUrl,
         authorId
       };
 
@@ -111,7 +153,7 @@ export default function SimplePostEditor({ post, authorId, onSave, trigger }: Si
       <DialogTrigger asChild>
         {trigger || defaultTrigger}
       </DialogTrigger>
-      <DialogContent className="w-screen h-screen max-w-none max-h-none m-0 p-0 overflow-hidden">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col">
     <div className="w-full h-full flex flex-col">
       <DialogHeader className="flex-shrink-0 p-4 border-b">
         <DialogTitle className="flex items-center gap-2">
@@ -176,11 +218,13 @@ export default function SimplePostEditor({ post, authorId, onSave, trigger }: Si
             <CardContent className="h-full">
               <div className="h-[80vh] min-h-[600px]">
                 <AdvancedCanvasEditor
+                  ref={editorRef}
                   initialData={canvasElements}
                   background={canvasBackground}
                   blurAmount={canvasBlur}
                   onSave={handleCanvasSave}
                   onCancel={() => setOpen(false)}
+                  showSaveControls={false}
                 />
               </div>
             </CardContent>
